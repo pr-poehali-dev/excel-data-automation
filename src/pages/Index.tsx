@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
+
+const EXCEL_IMPORT_URL = "https://functions.poehali.dev/3d2cdaca-8358-4114-976e-10519904677d";
 
 type ActiveTab = "dashboard" | "import" | "sources" | "tables";
 type DBType = "postgresql" | "mysql" | "mongodb" | "mssql" | "oracle" | "redis";
@@ -46,6 +48,14 @@ const STATS = [
 
 const BAR_HEIGHTS = [38, 55, 42, 71, 63, 29, 85, 47, 62, 78, 44, 53, 36, 69, 82, 57, 41, 74, 60, 33, 88, 51, 45, 67];
 
+interface ParsedData {
+  headers: string[];
+  rows: Record<string, unknown>[];
+  totalRows: number;
+  sheetNames: string[];
+  filename: string;
+}
+
 export default function Index() {
   const [activeTab, setActiveTab]           = useState<ActiveTab>("dashboard");
   const [selectedDB, setSelectedDB]         = useState<DBType>("postgresql");
@@ -55,17 +65,54 @@ export default function Index() {
   const [syncInterval, setSyncInterval]     = useState("5");
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [connForm, setConnForm]             = useState({ name: "", host: "", port: "", db: "", user: "", pass: "" });
+  const [importing, setImporting]           = useState(false);
+  const [importError, setImportError]       = useState<string | null>(null);
+  const [parsedData, setParsedData]         = useState<ParsedData | null>(null);
+  const [sheetIndex, setSheetIndex]         = useState(0);
+  const [headerRow, setHeaderRow]           = useState(0);
+  const [encoding, setEncoding]             = useState("utf-8");
+  const [delimiter, setDelimiter]           = useState(",");
+  const fileRef = useRef<File | null>(null);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
     const file = e.dataTransfer.files[0];
-    if (file) setUploadedFile(file.name);
+    if (file) { fileRef.current = file; setUploadedFile(file.name); setParsedData(null); setImportError(null); }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setUploadedFile(file.name);
+    if (file) { fileRef.current = file; setUploadedFile(file.name); setParsedData(null); setImportError(null); }
+  };
+
+  const handleImport = async () => {
+    if (!fileRef.current) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const buffer = await fileRef.current.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const res = await fetch(EXCEL_IMPORT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file: b64,
+          filename: fileRef.current.name,
+          sheetIndex,
+          headerRow,
+          encoding,
+          delimiter,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка сервера");
+      setParsedData(data);
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : "Неизвестная ошибка");
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleConnect = () => {
@@ -269,31 +316,119 @@ export default function Index() {
                   Настройки импорта
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { label: "Лист Excel",        opts: ["Лист 1", "Лист 2", "Все листы"] },
-                    { label: "Строка заголовков",  opts: ["Строка 1", "Строка 2", "Нет заголовков"] },
-                    { label: "Кодировка",          opts: ["UTF-8", "Windows-1251", "ISO-8859-1"] },
-                    { label: "Разделитель (CSV)",  opts: ["Запятая (,)", "Точка с запятой (;)", "Табуляция"] },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <label className="text-xs text-muted-foreground block mb-1.5">{f.label}</label>
-                      <select className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-ring">
-                        {f.opts.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                  ))}
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1.5">Строка заголовков</label>
+                    <select value={headerRow} onChange={e => setHeaderRow(Number(e.target.value))}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-ring">
+                      <option value={0}>Строка 1</option>
+                      <option value={1}>Строка 2</option>
+                      <option value={2}>Строка 3</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1.5">Лист Excel</label>
+                    <select value={sheetIndex} onChange={e => setSheetIndex(Number(e.target.value))}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-ring">
+                      {parsedData?.sheetNames.map((s, i) => <option key={i} value={i}>{s}</option>) ?? <option value={0}>Лист 1</option>}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1.5">Кодировка</label>
+                    <select value={encoding} onChange={e => setEncoding(e.target.value)}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-ring">
+                      <option value="utf-8">UTF-8</option>
+                      <option value="windows-1251">Windows-1251</option>
+                      <option value="iso-8859-1">ISO-8859-1</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1.5">Разделитель (CSV)</label>
+                    <select value={delimiter} onChange={e => setDelimiter(e.target.value)}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-ring">
+                      <option value=",">Запятая (,)</option>
+                      <option value=";">Точка с запятой (;)</option>
+                      <option value="\t">Табуляция</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 pt-2">
-                  <button className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
-                    style={{ background: "hsl(145 70% 50%)", color: "hsl(220 20% 6%)" }}>
-                    <Icon name="Upload" size={14} className="inline mr-1.5" />
-                    Импортировать
+                  <button
+                    onClick={handleImport}
+                    disabled={!uploadedFile || importing}
+                    className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                    style={{ background: "hsl(145 70% 50%)", color: "hsl(220 20% 6%)" }}
+                  >
+                    {importing
+                      ? <><Icon name="Loader2" size={14} className="animate-spin" /> Обработка...</>
+                      : <><Icon name="Upload" size={14} /> Импортировать</>
+                    }
                   </button>
-                  <button className="px-5 py-2.5 rounded-lg text-sm font-medium border border-border hover:border-muted-foreground text-muted-foreground hover:text-foreground transition-all">
-                    Предпросмотр
-                  </button>
+                  {parsedData && (
+                    <span className="text-xs neon-green flex items-center gap-1.5">
+                      <Icon name="CheckCircle" size={13} />
+                      {parsedData.totalRows.toLocaleString()} строк загружено
+                    </span>
+                  )}
                 </div>
+                {importError && (
+                  <div className="rounded-lg px-4 py-3 text-sm text-red-400 flex items-center gap-2"
+                    style={{ background: "hsl(0 75% 55% / 0.1)", border: "1px solid hsl(0 75% 55% / 0.3)" }}>
+                    <Icon name="AlertCircle" size={15} />
+                    {importError}
+                  </div>
+                )}
               </div>
+
+              {/* Result table */}
+              {parsedData && parsedData.rows.length > 0 && (
+                <div className="rounded-xl border border-border overflow-hidden animate-fade-in" style={{ background: "hsl(220 18% 9%)" }}>
+                  <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-white">{parsedData.filename}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5 mono">
+                        {parsedData.totalRows.toLocaleString()} строк · {parsedData.headers.length} колонок
+                        {parsedData.sheetNames.length > 1 && ` · ${parsedData.sheetNames.length} листов`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setActiveTab("tables"); }}
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all hover:opacity-90"
+                      style={{ background: "hsl(145 70% 50% / 0.15)", color: "hsl(145 70% 50%)" }}
+                    >
+                      Открыть в таблицах →
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0" style={{ background: "hsl(220 20% 7%)" }}>
+                        <tr>
+                          {parsedData.headers.map(h => (
+                            <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground border-b border-border whitespace-nowrap">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedData.rows.slice(0, 50).map((row, i) => (
+                          <tr key={i} className="border-b border-border hover:bg-muted transition-colors">
+                            {parsedData.headers.map(h => (
+                              <td key={h} className="px-4 py-2 text-xs text-foreground whitespace-nowrap mono">
+                                {row[h] !== null && row[h] !== undefined ? String(row[h]) : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {parsedData.totalRows > 50 && (
+                    <div className="px-6 py-3 text-xs text-muted-foreground mono border-t border-border">
+                      Показано 50 из {parsedData.totalRows.toLocaleString()} строк
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="rounded-xl border border-border p-6" style={{ background: "hsl(220 18% 9%)" }}>
                 <h3 className="font-semibold text-white flex items-center gap-2 mb-4">
