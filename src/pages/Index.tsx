@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import SmartTable from "@/components/SmartTable";
 
 const EXCEL_IMPORT_URL = "https://functions.poehali.dev/3d2cdaca-8358-4114-976e-10519904677d";
 
-type ActiveTab = "dashboard" | "import" | "sources" | "tables";
+type ActiveTab = "dashboard" | "import" | "sources" | "tables" | "smart";
 type DBType = "postgresql" | "mysql" | "mongodb" | "mssql" | "oracle" | "redis";
 
 interface DataSource {
@@ -131,11 +132,12 @@ export default function Index() {
     setConnForm({ name: "", host: "", port: "", db: "", user: "", pass: "" });
   };
 
-  const navItems: { id: ActiveTab; label: string; icon: string }[] = [
-    { id: "dashboard", label: "Дашборд",       icon: "LayoutDashboard"  },
-    { id: "import",    label: "Импорт Excel",   icon: "FileSpreadsheet"  },
-    { id: "sources",   label: "Источники БД",   icon: "Database"         },
-    { id: "tables",    label: "Таблицы",         icon: "Table2"           },
+  const navItems: { id: ActiveTab; label: string; icon: string; badge?: string }[] = [
+    { id: "dashboard", label: "Дашборд",        icon: "LayoutDashboard"  },
+    { id: "import",    label: "Импорт Excel",    icon: "FileSpreadsheet"  },
+    { id: "sources",   label: "Источники БД",    icon: "Database"         },
+    { id: "tables",    label: "Таблицы",          icon: "Table2"           },
+    { id: "smart",     label: "Умные таблицы",   icon: "Sparkles", badge: "NEW" },
   ];
 
   return (
@@ -178,6 +180,12 @@ export default function Index() {
                   {sources.length}
                 </span>
               )}
+              {item.badge && (
+                <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md font-bold tracking-wide"
+                  style={{ background: "hsl(30 90% 60% / 0.2)", color: "hsl(30 90% 65%)" }}>
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -204,6 +212,7 @@ export default function Index() {
               {activeTab === "import"    && "Загрузка и настройка Excel файлов"}
               {activeTab === "sources"   && "Управление подключениями к базам данных"}
               {activeTab === "tables"    && "Просмотр и редактирование таблиц"}
+              {activeTab === "smart"     && "Выпадающие списки с автозаполнением данных"}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -649,6 +658,11 @@ export default function Index() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ── SMART TABLE ── */}
+          {activeTab === "smart" && (
+            <SmartTable />
           )}
         </div>
       </main>
