@@ -1,54 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import type { CatalogClient, CatalogProduct } from "@/components/CatalogPage";
 
-// ─── Справочник товаров ─────────────────────────────────────────────────────
-interface Product {
-  id: number;
-  name: string;
-  category: string;
-  unit: string;
-  price: number;
-  supplier: string;
-  sku: string;
-  stock: number;
-  vat: number;
-}
-
-const PRODUCT_CATALOG: Product[] = [
-  { id: 1,  name: "Ноутбук Pro 15",     category: "Электроника", unit: "шт", price: 98_500,  supplier: "TechCorp",      sku: "NB-001", stock: 24,  vat: 20 },
-  { id: 2,  name: "Офисный стул ErgoX", category: "Мебель",      unit: "шт", price: 18_900,  supplier: "OfficeWorld",   sku: "CH-042", stock: 56,  vat: 20 },
-  { id: 3,  name: 'Монитор 27" IPS',    category: "Электроника", unit: "шт", price: 32_400,  supplier: "TechCorp",      sku: "MN-027", stock: 18,  vat: 20 },
-  { id: 4,  name: "Принтер A4 Laser",   category: "Оргтехника",  unit: "шт", price: 22_100,  supplier: "PrintMaster",   sku: "PR-110", stock: 9,   vat: 20 },
-  { id: 5,  name: "Клавиатура Mech",    category: "Периферия",   unit: "шт", price: 7_800,   supplier: "GadgetPlus",    sku: "KB-500", stock: 120, vat: 20 },
-  { id: 6,  name: "Мышь беспроводная",  category: "Периферия",   unit: "шт", price: 3_200,   supplier: "GadgetPlus",    sku: "MS-220", stock: 85,  vat: 20 },
-  { id: 7,  name: "Стол письменный 1.4м",category: "Мебель",     unit: "шт", price: 24_000,  supplier: "OfficeWorld",   sku: "TB-140", stock: 12,  vat: 20 },
-  { id: 8,  name: "Сканер документов",  category: "Оргтехника",  unit: "шт", price: 14_500,  supplier: "PrintMaster",   sku: "SC-300", stock: 6,   vat: 20 },
-  { id: 9,  name: "Веб-камера 4K",      category: "Электроника", unit: "шт", price: 9_600,   supplier: "TechCorp",      sku: "WC-400", stock: 33,  vat: 20 },
-  { id: 10, name: "Наушники ANC",       category: "Электроника", unit: "шт", price: 18_200,  supplier: "GadgetPlus",    sku: "HP-800", stock: 44,  vat: 20 },
-];
-
-// ─── Справочник клиентов ────────────────────────────────────────────────────
-interface Client {
-  id: number;
-  name: string;
-  company: string;
-  email: string;
-  phone: string;
-  city: string;
-  manager: string;
-  discount: number;
-}
-
-const CLIENT_CATALOG: Client[] = [
-  { id: 1, name: "Иванов Алексей",    company: "ООО Альфа",        email: "ivanov@alfa.ru",     phone: "+7 (495) 100-01-01", city: "Москва",          manager: "Петров К.",    discount: 5  },
-  { id: 2, name: "Смирнова Елена",    company: "ИП Смирнова",      email: "e.smirnova@mail.ru", phone: "+7 (812) 200-02-02", city: "Санкт-Петербург", manager: "Козлов Д.",    discount: 0  },
-  { id: 3, name: "Кузнецов Дмитрий", company: "ЗАО Бета Групп",   email: "d.kuz@beta.ru",      phone: "+7 (343) 300-03-03", city: "Екатеринбург",    manager: "Петров К.",    discount: 10 },
-  { id: 4, name: "Попова Ирина",      company: "ООО Гамма",        email: "popova@gamma.org",   phone: "+7 (383) 400-04-04", city: "Новосибирск",     manager: "Лебедев Р.",   discount: 3  },
-  { id: 5, name: "Новиков Сергей",    company: "ПАО Дельта",       email: "novikov@delta.com",  phone: "+7 (831) 500-05-05", city: "Нижний Новгород", manager: "Козлов Д.",    discount: 7  },
-  { id: 6, name: "Морозова Анна",     company: "ООО Эпсилон",      email: "morozova@eps.ru",    phone: "+7 (846) 600-06-06", city: "Самара",          manager: "Лебедев Р.",   discount: 0  },
-  { id: 7, name: "Волков Павел",      company: "ИП Волков П.А.",   email: "volkov@inbox.ru",    phone: "+7 (351) 700-07-07", city: "Челябинск",       manager: "Петров К.",    discount: 2  },
-  { id: 8, name: "Соколова Татьяна",  company: "ООО Зета Трейд",   email: "sokolova@zeta.ru",   phone: "+7 (473) 800-08-08", city: "Воронеж",         manager: "Козлов Д.",    discount: 15 },
-];
+// Алиасы для совместимости внутри компонента
+type Client  = CatalogClient;
+type Product = CatalogProduct;
 
 // ─── Типы строк таблицы ─────────────────────────────────────────────────────
 interface OrderRow {
@@ -80,20 +36,6 @@ function emptyRow(id: string): OrderRow {
     price: 0, qty: 1, vat: 20, supplier: "",
   };
 }
-
-const INITIAL_ROWS: OrderRow[] = [
-  (() => {
-    const r = emptyRow("1");
-    const c = CLIENT_CATALOG[2]; const p = PRODUCT_CATALOG[0];
-    return { ...r, clientId: c.id, clientName: c.name, company: c.company, email: c.email, phone: c.phone, city: c.city, manager: c.manager, discount: c.discount, productId: p.id, productName: p.name, sku: p.sku, category: p.category, unit: p.unit, price: p.price, qty: 2, vat: p.vat, supplier: p.supplier };
-  })(),
-  (() => {
-    const r = emptyRow("2");
-    const c = CLIENT_CATALOG[0]; const p = PRODUCT_CATALOG[2];
-    return { ...r, clientId: c.id, clientName: c.name, company: c.company, email: c.email, phone: c.phone, city: c.city, manager: c.manager, discount: c.discount, productId: p.id, productName: p.name, sku: p.sku, category: p.category, unit: p.unit, price: p.price, qty: 3, vat: p.vat, supplier: p.supplier };
-  })(),
-  emptyRow("3"),
-];
 
 // ─── Вычисления ─────────────────────────────────────────────────────────────
 function calcRow(r: OrderRow) {
@@ -213,8 +155,16 @@ function EditCell({ value, onChange, type = "text", min, className }: {
 }
 
 // ─── Главный компонент ──────────────────────────────────────────────────────
-export default function SmartTable() {
-  const [rows, setRows] = useState<OrderRow[]>(INITIAL_ROWS);
+export default function SmartTable({
+  clients = [],
+  products = [],
+  catalogLoading = false,
+}: {
+  clients?: Client[];
+  products?: Product[];
+  catalogLoading?: boolean;
+}) {
+  const [rows, setRows] = useState<OrderRow[]>([emptyRow("1"), emptyRow("2"), emptyRow("3")]);
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const [panelRow, setPanelRow] = useState<OrderRow | null>(null);
 
@@ -328,8 +278,8 @@ export default function SmartTable() {
                     <td className="px-3 py-2">
                       <SearchDropdown
                         value={row.clientName}
-                        options={CLIENT_CATALOG}
-                        placeholder="Выбрать клиента..."
+                        options={clients}
+                        placeholder={catalogLoading ? "Загрузка..." : "Выбрать клиента..."}
                         getLabel={c => c.name}
                         onSelect={c => updateRow(row.id, {
                           clientId: c.id, clientName: c.name, company: c.company,
@@ -367,8 +317,8 @@ export default function SmartTable() {
                     <td className="px-3 py-2">
                       <SearchDropdown
                         value={row.productName}
-                        options={PRODUCT_CATALOG}
-                        placeholder="Выбрать товар..."
+                        options={products}
+                        placeholder={catalogLoading ? "Загрузка..." : "Выбрать товар..."}
                         getLabel={p => p.name}
                         onSelect={p => updateRow(row.id, {
                           productId: p.id, productName: p.name, sku: p.sku,
@@ -482,6 +432,8 @@ export default function SmartTable() {
           row={rows.find(r => r.id === panelRow.id) ?? panelRow}
           onClose={() => setActivePanel(null)}
           fmt={fmt}
+          clients={clients}
+          products={products}
         />
       )}
     </div>
@@ -489,10 +441,13 @@ export default function SmartTable() {
 }
 
 // ─── Боковая карточка строки ────────────────────────────────────────────────
-function DetailPanel({ row, onClose, fmt }: { row: OrderRow; onClose: () => void; fmt: (n: number) => string }) {
+function DetailPanel({ row, onClose, fmt, clients, products }: {
+  row: OrderRow; onClose: () => void; fmt: (n: number) => string;
+  clients: Client[]; products: Product[];
+}) {
   const { sub, disc, net, vatAmt, total } = calcRow(row);
-  const product = PRODUCT_CATALOG.find(p => p.id === row.productId);
-  const client  = CLIENT_CATALOG.find(c => c.id === row.clientId);
+  const product = products.find(p => p.id === row.productId);
+  const client  = clients.find(c => c.id === row.clientId);
 
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">

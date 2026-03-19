@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET clients",
+      "method": "GET",
+      "path": "/?type=clients",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET products",
+      "method": "GET",
+      "path": "/?type=products",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Wrong type returns 400",
+      "method": "GET",
+      "path": "/?type=unknown",
+      "expectedStatus": 400
+    }
+  ]
+}

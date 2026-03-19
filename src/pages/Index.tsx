@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import SmartTable from "@/components/SmartTable";
+import CatalogPage, { useCatalog } from "@/components/CatalogPage";
 
 const EXCEL_IMPORT_URL = "https://functions.poehali.dev/3d2cdaca-8358-4114-976e-10519904677d";
 
-type ActiveTab = "dashboard" | "import" | "sources" | "tables" | "smart";
+type ActiveTab = "dashboard" | "import" | "sources" | "tables" | "smart" | "catalog";
 type DBType = "postgresql" | "mysql" | "mongodb" | "mssql" | "oracle" | "redis";
 
 interface DataSource {
@@ -74,6 +75,7 @@ export default function Index() {
   const [encoding, setEncoding]             = useState("utf-8");
   const [delimiter, setDelimiter]           = useState(",");
   const fileRef = useRef<File | null>(null);
+  const { clients, products, loading: catalogLoading, reload: reloadCatalog } = useCatalog();
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -137,7 +139,8 @@ export default function Index() {
     { id: "import",    label: "Импорт Excel",    icon: "FileSpreadsheet"  },
     { id: "sources",   label: "Источники БД",    icon: "Database"         },
     { id: "tables",    label: "Таблицы",          icon: "Table2"           },
-    { id: "smart",     label: "Умные таблицы",   icon: "Sparkles", badge: "NEW" },
+    { id: "smart",     label: "Умные таблицы",  icon: "Sparkles", badge: "NEW" },
+    { id: "catalog",   label: "Справочники",     icon: "BookOpen" },
   ];
 
   return (
@@ -213,6 +216,7 @@ export default function Index() {
               {activeTab === "sources"   && "Управление подключениями к базам данных"}
               {activeTab === "tables"    && "Просмотр и редактирование таблиц"}
               {activeTab === "smart"     && "Выпадающие списки с автозаполнением данных"}
+              {activeTab === "catalog"   && "Управление клиентами и товарами"}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -662,7 +666,12 @@ export default function Index() {
 
           {/* ── SMART TABLE ── */}
           {activeTab === "smart" && (
-            <SmartTable />
+            <SmartTable clients={clients} products={products} catalogLoading={catalogLoading} />
+          )}
+
+          {/* ── CATALOG ── */}
+          {activeTab === "catalog" && (
+            <CatalogPage clients={clients} products={products} onReload={reloadCatalog} />
           )}
         </div>
       </main>
